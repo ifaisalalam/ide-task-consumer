@@ -1,11 +1,11 @@
 package rabbitmq
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/ifaisalalam/ide-task-consumer/queue"
 
+	"github.com/pingcap/errors"
 	"github.com/streadway/amqp"
 )
 
@@ -31,17 +31,17 @@ func (r *RabbitMQ) Connect() (interface{}, error) {
 	var err error
 	r.conn, err = amqp.DialConfig("amqp://localhost:5672", amqpConfig)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to dial AMQP. Error: %s", err.Error()))
+		return nil, errors.AddStack(err)
 	}
 
 	ch, err := r.conn.Channel()
 	if err != nil {
-		return nil, err
+		return nil, errors.AddStack(err)
 	}
 	defer ch.Close()
 	r.q, err = ch.QueueDeclare("test", true, false, false, false, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.AddStack(err)
 	}
 
 	return r.conn, nil
@@ -54,7 +54,7 @@ func (r *RabbitMQ) Close() error {
 		}
 	}
 	if r.conn != nil {
-		return r.conn.Close()
+		return errors.AddStack(r.conn.Close())
 	}
 
 	return nil
@@ -68,16 +68,16 @@ func (r *RabbitMQ) CloseChannel() error {
 		}
 	}
 
-	return err
+	return errors.AddStack(err)
 }
 
 func (r *RabbitMQ) GetChannel() (queue.Data, error) {
 	ch, err := r.conn.Channel()
 	if err != nil {
-		return queue.Data{}, err
+		return queue.Data{}, errors.AddStack(err)
 	}
 	if err = ch.Qos(r.PrefetchCount, 0, false); err != nil {
-		return queue.Data{}, err
+		return queue.Data{}, errors.AddStack(err)
 	}
 	r.ch = append(r.ch, ch)
 	delivery, err := ch.Consume(r.q.Name,
@@ -88,7 +88,7 @@ func (r *RabbitMQ) GetChannel() (queue.Data, error) {
 		false,
 		nil)
 	if err != nil {
-		return queue.Data{}, err
+		return queue.Data{}, errors.AddStack(err)
 	}
 
 	return queue.Data{MessageData: MessageData{delivery}}, nil
@@ -116,36 +116,36 @@ func (md MessageData) IsNil(data interface{}) bool {
 
 func (md MessageData) GetMessage(data interface{}) (string, error) {
 	if md.IsNil(data) {
-		return "", ErrNilMessageData
+		return "", errors.AddStack(ErrNilMessageData)
 	}
 
 	d, ok := data.(amqp.Delivery)
 	if !ok {
-		return "", ErrInvalidMessageData
+		return "", errors.AddStack(ErrInvalidMessageData)
 	}
 	return string(d.Body), nil
 }
 
 func (md MessageData) Ack(data interface{}) error {
 	if md.IsNil(data) {
-		return ErrNilMessageData
+		return errors.AddStack(ErrNilMessageData)
 	}
 
 	d, ok := data.(amqp.Delivery)
 	if !ok {
-		return ErrInvalidMessageData
+		return errors.AddStack(ErrInvalidMessageData)
 	}
-	return d.Ack(false)
+	return errors.AddStack(d.Ack(false))
 }
 
 func (md MessageData) Nack(data interface{}) error {
 	if md.IsNil(data) {
-		return ErrNilMessageData
+		return errors.AddStack(ErrNilMessageData)
 	}
 
 	d, ok := data.(amqp.Delivery)
 	if !ok {
-		return ErrInvalidMessageData
+		return errors.AddStack(ErrInvalidMessageData)
 	}
-	return d.Nack(false, true)
+	return errors.AddStack(d.Nack(false, true))
 }

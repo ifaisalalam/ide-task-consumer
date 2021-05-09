@@ -1,5 +1,7 @@
 package queue
 
+import "github.com/pingcap/errors"
+
 type Q struct {
 	q Queue
 }
@@ -26,7 +28,7 @@ type MessageData interface {
 func Initialize(queue Queue) (interface{}, error) {
 	_, err := queue.Connect()
 	if err != nil {
-		return nil, err
+		return nil, errors.AddStack(err)
 	}
 
 	return Q{queue}, nil

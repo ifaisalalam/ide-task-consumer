@@ -4,6 +4,8 @@ import (
 	"sync"
 
 	"github.com/ifaisalalam/ide-task-consumer/queue"
+
+	"github.com/pingcap/errors"
 )
 
 type Worker struct {
@@ -13,7 +15,7 @@ type Worker struct {
 }
 
 type Handler interface {
-	Handle(*sync.WaitGroup, queue.Data)
+	Handle(id int, wg *sync.WaitGroup, msg queue.Data)
 }
 
 func NewWorker(q queue.Q, parallelism int) Worker {
@@ -28,12 +30,12 @@ func (w *Worker) Wait() {
 func (w *Worker) Spawn(handler Handler) error {
 	data, err := w.q.GetChannel()
 	if err != nil {
-		return err
+		return errors.AddStack(err)
 	}
 
 	for i := 0; i < w.parallelism; i++ {
 		w.wg.Add(1)
-		go handler.Handle(w.wg, data)
+		go handler.Handle(i, w.wg, data)
 	}
 
 	return nil
